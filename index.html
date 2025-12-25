@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nébuleuse Pro - Ultimate</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="nebuleuse-logo.png">
+    <style>
+        :root {
+            --bg-start: #f0f2f5; --bg-end: #e0e2e5; --card: #ffffff; --text: #1e293b; --accent: #10b981; --border: #e2e8f0;
+            --radius-max: 50px; --ai-color: #8b5cf6; --anim-speed: 0.8s;
+            --dropdown-bg: rgba(255, 255, 255, 0.95);
+            --dropdown-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            --dropdown-border: 1px solid rgba(0, 0, 0, 0.08);
+            --dropdown-hover: rgba(16, 185, 129, 0.1);
+        }
+        [data-theme="dark"] {
+            --bg-start: #0f172a; --bg-end: #1a2336; --card: #1e293b; --text: #f1f5f9; --border: #334155;
+            --dropdown-bg: rgba(30, 41, 59, 0.95);
+            --dropdown-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            --dropdown-border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* --- Loader --- */
+        #loader {
+            position: fixed; inset: 0; background: var(--bg-start); z-index: 9999;
+            display: flex; align-items: center; justify-content: center; transition: 0.5s ease-out;
+        }
+        .spinner { width: 40px; height: 40px; border: 4px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- Système d'animations post-chargement --- */
+        .fade-in { opacity: 0; transform: translateY(20px); transition: all var(--anim-speed) ease-out; }
+        .scale-in { opacity: 0; transform: scale(0.9); transition: all var(--anim-speed) ease-out; }
+        body.site-ready .fade-in { opacity: 1; transform: translateY(0); }
+        body.site-ready .scale-in { opacity: 1; transform: scale(1); }
+        body.site-ready .delay-1 { transition-delay: 0.2s; }
+        body.site-ready .delay-2 { transition-delay: 0.4s; }
+
+        body {
+            margin: 0; font-family: 'Inter', sans-serif; background: linear-gradient(135deg, var(--bg-start), var(--bg-end));
+            color: var(--text); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden;
+            background-size: 200% 200%; animation: gradientShift 10s ease infinite alternate;
+        }
+        @keyframes gradientShift { 0% { background-position: 0% 0%; } 100% { background-position: 100% 100%; } }
+
+        /* --- Layout Containers --- */
+        .floating-top {
+            position: fixed; top: 15px; left: 15px; right: 15px;
+            display: flex; justify-content: space-between; align-items: stretch;
+            z-index: 100; pointer-events: none;
+        }
+
+        /* --- Zone d'image à gauche --- */
+        .floating-image {
+            position: fixed;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 200px;
+            height: 200px;
+            background: var(--card);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            transition: all 0.3s ease;
+        }
+        .floating-image:hover {
+            transform: translateY(-50%) scale(1.03);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+        .floating-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+        }
+
+        /* --- Harmonisation des containers du haut --- */
+        .top-pill {
+            background: var(--card); border: 1px solid var(--border);
+            padding: 0 15px; height: 50px;
+            border-radius: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex; align-items: center; gap: 10px;
+            pointer-events: auto; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        body.site-ready .top-pill:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+
+        /* --- Menus déroulants stylisés --- */
+        .select-group { display: flex; gap: 8px; }
+        .select-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: var(--bg-start);
+            padding: 5px 10px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: 0.2s;
+            cursor: pointer;
+        }
+        .select-container:hover {
+            background: var(--dropdown-hover);
+        }
+        .select-icon { width: 18px; height: 18px; border-radius: 4px; object-fit: contain; }
+        .select-overlay {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+        select {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .custom-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 250px;
+            background: var(--dropdown-bg);
+            border: var(--dropdown-border);
+            border-radius: 12px;
+            box-shadow: var(--dropdown-shadow);
+            padding: 10px 0;
+            margin-top: 10px;
+            display: none;
+            z-index: 1000;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .select-container:hover .custom-dropdown {
+            display: block;
+        }
+        .dropdown-item {
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+        .dropdown-item:hover {
+            background: var(--dropdown-hover);
+        }
+        .dropdown-item img {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 10;
+            margin-top: 80px;
+            margin-bottom: 100px;
+        }
+        .app-title {
+            font-size: 3rem;
+            font-weight: 900;
+            margin-bottom: 20px;
+            color: var(--accent);
+            letter-spacing: -2px;
+            text-shadow: 0 10px 20px rgba(16, 185, 129, 0.1);
+            text-align: center;
+        }
+
+        .search-box {
+            display: flex;
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: var(--radius-max);
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        body.site-ready .search-box:focus-within { transform: scale(1.02); border-color: var(--accent); box-shadow: 0 25px 50px rgba(16, 185, 129, 0.12); }
+        .search-box input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            padding: 0 15px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        /* --- Favorites --- */
+        .fav-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 30px;
+            max-width: 90%;
+        }
+        .fav-item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 8px 15px;
+            border-radius: var(--radius-max);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.3s;
+            text-decoration: none;
+            color: inherit;
+            font-size: 0.85rem;
+            font-weight: 500;
+            position: relative;
+        }
+        .fav-item img { width: 18px; height: 18px; border-radius: 4px; }
+        .fav-item:hover { transform: translateY(-3px); background: var(--accent); color: white; border-color: var(--accent); }
+        .del-btn {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 18px;
+            height: 18px;
+            background: #ff7675;
+            color: white;
+            border-radius: 50%;
+            border: none;
+            font-size: 10px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .fav-item:hover .del-btn { display: flex; }
+        .btn-add-fav {
+            background: transparent;
+            border: 2px dashed var(--border);
+            color: var(--text);
+            opacity: 0.6;
+            cursor: pointer;
+            padding: 8px 15px;
+        }
+        .btn-add-fav:hover { opacity: 1; border-color: var(--accent); color: var(--accent); background: transparent !important; }
+
+        /* --- Post-it --- */
+        #postIt {
+            position: fixed;
+            top: 120px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            background: #fff382;
+            box-shadow: 5px 15px 30px rgba(0,0,0,0.15);
+            padding: 12px;
+            border-radius: 2px;
+            display: none;
+            flex-direction: column;
+            z-index: 500;
+            cursor: grab;
+            color: #444;
+            transform: rotate(1deg);
+            transition: opacity 0.3s;
+        }
+        #postIt:active { cursor: grabbing; }
+        #postIt textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: 'Comic Sans MS', cursive;
+            font-size: 1rem;
+            color: inherit;
+            line-height: 1.4;
+        }
+
+        /* --- Bottom Center Container --- */
+        .floating-bottom {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            width: 90%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .bottom-pill {
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 15px 25px;
+            border-radius: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            gap: 1px;
+            pointer-events: auto;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+            pointer-events: auto;
+        }
+        body.site-ready .btn-icon:hover { color: var(--accent); background: rgba(16, 185, 129, 0.1); }
+
+        /* --- Modals --- */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 4000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+            padding: 20px;
+        }
+        .modal-content {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 25px;
+            width: 90%;
+            max-width: 320px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .modal-input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 15px;
+            border: 1px solid var(--border);
+            background: var(--bg-start);
+            color: var(--text);
+            box-sizing: border-box;
+        }
+
+        /* --- Respiration --- */
+        #breatheModal .breathe-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            border: 6px solid var(--accent);
+            transition: 4s ease-in-out;
+        }
+        .breathing .breathe-circle {
+            transform: scale(1.5);
+            background: rgba(16, 185, 129, 0.1);
+            box-shadow: 0 0 50px rgba(16, 185, 129, 0.3);
+        }
+
+        /* --- Media Queries pour le Responsive --- */
+        @media (max-width: 768px) {
+            .floating-image {
+                left: 10px;
+                width: 150px;
+                height: 150px;
+            }
+            .floating-top {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .top-pill {
+                width: 100%;
+                justify-content: space-between;
+                height: auto;
+                padding: 10px 15px;
+            }
+            .select-group {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            .app-title {
+                font-size: 2.5rem;
+            }
+            .search-box {
+                max-width: 100%;
+            }
+            .fav-grid {
+                max-width: 100%;
+            }
+            .floating-bottom {
+                width: 95%;
+            }
+            .bottom-pill {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            #postIt {
+                width: 180px;
+                height: 180px;
+                right: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .app-title {
+                font-size: 2rem;
+            }
+            .search-box input {
+                font-size: 0.9rem;
+            }
+            .fav-item {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+            .modal-content {
+                padding: 15px;
+            }
+            .floating-image {
+                width: 120px;
+                height: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader"><div class="spinner"></div></div>
+
+    <div class="floating-top">
+        <div class="top-pill fade-in">
+            <span id="clock" style="font-weight: 700; font-size: 1rem;">00:00</span>
+            <span style="opacity: 0.2">|</span>
+            <span id="weather" style="font-weight: 500;">--°C</span>
+        </div>
+        <div class="top-pill fade-in">
+            <div class="select-group">
+                <!-- Moteurs de recherche -->
+                <div class="select-container" title="Moteur de recherche">
+                    <img id="activeEngineIcon" src="" class="select-icon">
+                    <select id="enginePick" class="select-overlay" onchange="updateEngine()">
+                        <option value="google">Google</option>
+                        <option value="bing">Bing</option>
+                        <option value="ecosia">Ecosia</option>
+                        <option value="duckduckgo">DuckDuckGo</option>
+                        <option value="lilo">Lilo</option>
+                        <option value="qwant">Qwant</option>
+                        <option value="brave">Brave Search</option>
+                        <option value="yahoo">Yahoo</option>
+                        <option value="startpage">Startpage</option>
+                        <option value="all_engines">Tout ouvrir</option>
+                    </select>
+                    <div class="custom-dropdown" id="engineDropdown">
+                        <div class="dropdown-item" onclick="selectEngine('google')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=google.com">
+                            <span>Google</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectEngine('bing')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=bing.com">
+                            <span>Bing</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectEngine('ecosia')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=ecosia.org">
+                            <span>Ecosia</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectEngine('duckduckgo')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=duckduckgo.com">
+                            <span>DuckDuckGo</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectEngine('lilo')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=lilo.org">
+                            <span>Lilo</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectEngine('qwant')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=qwant.com">
+                            <span>Qwant</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectEngine('brave')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=brave.com">
+                            <span>Brave Search</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectEngine('yahoo')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=yahoo.com">
+                            <span>Yahoo</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectEngine('startpage')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=startpage.com">
+                            <span>Startpage</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectEngine('all_engines')">
+                            <img src="https://cdn-icons-png.flaticon.com/512/743/743204.png">
+                            <span>Tout ouvrir</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IA -->
+                <div class="select-container" title="Intelligence Artificielle">
+                    <img id="activeAiIcon" src="" class="select-icon">
+                    <select id="aiPick" class="select-overlay" onchange="updateAI()">
+                        <option value="chatgpt">ChatGPT</option>
+                        <option value="claude">Claude</option>
+                        <option value="gemini">Gemini</option>
+                        <option value="perplexite">Perplexity</option>
+                        <option value="mistral">Mistral AI</option>
+                        <option value="deepseek">DeepSeek</option>
+                        <option value="grok">Grok (xAI)</option>
+                        <option value="poe">Poe</option>
+                        <option value="copilot">Copilot</option>
+                        <option value="all_ai">Tout ouvrir</option>
+                    </select>
+                    <div class="custom-dropdown" id="aiDropdown">
+                        <div class="dropdown-item" onclick="selectAI('chatgpt')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=chatgpt.com">
+                            <span>ChatGPT</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectAI('claude')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=claude.ai">
+                            <span>Claude</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectAI('gemini')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=gemini.google.com">
+                            <span>Gemini</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectAI('perplexite')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=perplexity.ai">
+                            <span>Perplexity</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectAI('mistral')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=mistral.ai">
+                            <span>Mistral AI</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectAI('deepseek')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=deepseek.com">
+                            <span>DeepSeek</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectAI('grok')">
+                            <img src="https://cdn-icons-png.flaticon.com/512/5968/5968764.png">
+                            <span>Grok (xAI)</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectAI('poe')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=poe.com">
+                            <span>Poe</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectAI('copilot')">
+                            <img src="https://www.google.com/s2/favicons?sz=64&domain=microsoft.com">
+                            <span>Copilot</span>
+                        </div>
+                        <div class="dropdown-item" onclick="selectAI('all_ai')">
+                            <img src="https://cdn-icons-png.flaticon.com/512/2103/2103633.png">
+                            <span>Tout ouvrir</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-icon" onclick="togglePostIt()"><i class="far fa-sticky-note"></i></button>
+            <button class="btn-icon" onclick="toggleTheme()"><i id="themeIcon" class="fas fa-moon"></i></button>
+        </div>
+    </div>
+
+    <main>
+        <h1 class="app-title scale-in">Nébuleuse</h1>
+
+        <form id="searchForm" class="search-box fade-in delay-1" onsubmit="handleSearch(event)">
+            <div class="btn-icon" style="color:var(--ai-color); margin-left: 5px;" onclick="redirectAI()" title="IA Directe">
+                <i class="fas fa-paper-plane"></i>
+            </div>
+            <input type="text" id="searchInput" placeholder="Rechercher ou discuter..." required autofocus autocomplete="off">
+            <button type="submit" class="btn-icon" style="background:var(--accent); color:white; margin-right:5px; width:40px; height:40px; border-radius: 50%;"><i class="fas fa-search"></i></button>
+        </form>
+
+        <div class="fav-grid fade-in delay-2" id="favGrid"></div>
+    </main>
+
+    <div id="postIt">
+        <div id="postItHeader" style="height:20px; width:100%; border-bottom:1px solid rgba(0,0,0,0.05); cursor:move; display:flex; justify-content:flex-end;">
+            <i class="fas fa-times" style="font-size:10px; opacity:0.3; padding:3px; cursor:pointer;" onclick="togglePostIt()"></i>
+        </div>
+        <textarea id="noteArea" placeholder="Une idée brillante ? Notez-la..."></textarea>
+    </div>
+
+    <div class="floating-bottom fade-in delay-2">
+        <div class="bottom-pill">
+            <span id="quote" style="font-size: 0.9rem; font-style: italic; opacity: 0.8; max-width: 100%; text-align: center;">
+                "Le meilleur moment pour planter un arbre était il y a 20 ans. Le deuxième meilleur moment est maintenant."
+            </span>
+            <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px; justify-content: center; width: 100%;">
+                <button class="btn-icon" style="background:var(--accent); color:white; width: auto; padding: 0 15px; border-radius: 15px; font-size: 0.85rem; gap: 8px;" onclick="openBreathe()">
+                    <i class="fas fa-wind"></i> Respirez
+                </button>
+                <button class="btn-icon" onclick="openPomodoro()" title="Pomodoro"><i class="fas fa-clock"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="favModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">Nouveau Favori</h3>
+            <input type="text" id="favName" class="modal-input" placeholder="Nom du site (ex: GitHub)">
+            <input type="text" id="favUrl" class="modal-input" placeholder="URL (ex: github.com)">
+            <button class="btn-icon" onclick="saveFav()" style="width:100%; background:var(--accent); color:white; border:none; margin-top:15px; justify-content:center; border-radius: 15px;">Ajouter</button>
+            <button onclick="closeModal('favModal')" style="margin-top:15px; background:none; border:none; color:var(--text); cursor:pointer; opacity:0.6;">Annuler</button>
+        </div>
+    </div>
+
+    <div id="breatheModal" class="modal">
+        <button onclick="closeBreathe()" style="position:absolute; top:20px; right:20px; font-size:2rem; background:none; border:none; cursor:pointer; color:var(--text);">&times;</button>
+        <div class="breathe-circle" id="breatheText">Inspirez</div>
+        <p style="margin-top:20px; font-size:1rem; opacity:0.6;">Videz votre esprit...</p>
+    </div>
+
+    <div id="pomodoroModal" class="modal">
+        <div style="width:95%; max-width:650px; height:500px; background:var(--card); border-radius:25px; overflow:hidden; position:relative;">
+            <button onclick="closeModal('pomodoroModal')" style="position:absolute; top:10px; right:15px; font-size:1.2rem; background:none; border:none; cursor:pointer; z-index:10;">&times;</button>
+            <iframe src="https://flocus.com/minimalist-pomodoro-timer/" style="width:100%; height:100%; border:none;"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // Liste de citations aléatoires
+        const quotes = [
+            "Le meilleur moment pour planter un arbre était il y a 20 ans. Le deuxième meilleur moment est maintenant.",
+            "La vie, c'est comme une bicyclette, il faut avancer pour ne pas perdre l'équilibre. — Albert Einstein",
+            "Le bonheur est parfois caché dans l'inconnu.",
+            "Ne laissez pas hier prendre trop de place dans aujourd'hui.",
+            "La simplicité est la sophistication suprême. — Léonard de Vinci",
+            "Chaque jour est une nouvelle chance de changer sa vie.",
+            "La persévérance est la clé de tout succès.",
+            "La créativité, c'est l'intelligence qui s'amuse. — Albert Einstein",
+            "Le succès, c'est d'aller d'échec en échec sans perdre son enthousiasme. — Winston Churchill",
+            "La vie est soit une aventure audacieuse, soit rien du tout. — Helen Keller",
+            "Le secret pour avancer, c'est de commencer. — Mark Twain",
+            "La curiosité est le moteur de l'apprentissage.",
+            "La patience est une vertu qui porte ses fruits.",
+            "L'imagination est plus importante que le savoir. — Albert Einstein",
+            "La confiance en soi est le premier secret du succès. — Ralph Waldo Emerson",
+            "La vie est faite de petits bonheurs, pas de grands miracles.",
+            "Le temps est un maître qui enseigne sans parole.",
+            "La liberté commence où l'ignorance finit. — Victor Hugo",
+            "La beauté est dans les yeux de celui qui regarde.",
+            "La connaissance s'acquiert par l'expérience, tout le reste n'est que de l'information. — Albert Einstein",
+            "La vie est un mystère qu'il faut vivre, pas un problème à résoudre.",
+            "La gratitude transforme ce que nous avons en suffisance.",
+            "La paix commence par un sourire. — Mère Teresa",
+            "La vie est une aventure, osez la vivre pleinement.",
+            "La persévérance transforme les rêves en réalité.",
+            "La simplicité est la clé de la vraie élégance.",
+            "La vie est un voyage, pas une destination.",
+            "La curiosité est le chemin vers la découverte.",
+            "La confiance en soi est le fondement de la réussite.",
+            "La vie est une toile, peignez-la avec des couleurs vives.",
+            "La patience est l'art d'espérer.",
+            "La vie est une fête, célébrez chaque instant.",
+            "La créativité est l'essence de l'innovation.",
+            "La vie est un livre, écrivez-en chaque page avec passion.",
+            "La persévérance est la force qui brise les montagnes.",
+            "La vie est un cadeau, ouvrez-la avec gratitude.",
+            "La simplicité est la clé de la sérénité.",
+            "La vie est une mélodie, dansez sur son rythme.",
+            "La curiosité est la flamme qui éclaire l'esprit.",
+            "La confiance en soi est le premier pas vers la réussite.",
+            "La vie est une aventure, explorez-la sans peur.",
+            "La persévérance est le pont entre les rêves et la réalité.",
+            "La vie est un jardin, cultivez-la avec amour.",
+            "La patience est la vertu des grands esprits.",
+            "La vie est une toile blanche, peignez-la avec vos rêves.",
+            "La créativité est l'âme de l'innovation.",
+            "La vie est un voyage, profitez de chaque étape.",
+            "La persévérance est la clé qui ouvre toutes les portes.",
+            "La vie est une fête, savourez chaque moment.",
+            "La simplicité est la sophistication ultime.",
+            "La vie est une aventure, vivez-la intensément.",
+            "La curiosité est le moteur de la découverte.",
+            "La confiance en soi est le secret de la réussite.",
+            "La vie est un livre, écrivez-en chaque chapitre avec passion.",
+            "La persévérance est la force qui transforme les rêves en réalité.",
+            "La vie est un cadeau, ouvrez-la avec reconnaissance.",
+            "La simplicité est la clé de la paix intérieure.",
+            "La vie est une mélodie, dansez sur son rythme.",
+            "La curiosité est la lumière qui guide l'esprit.",
+            "La confiance en soi est le premier pas vers le succès.",
+            "La vie est une aventure, explorez-la avec courage.",
+            "La persévérance est le pont entre les rêves et la réalité.",
+            "La vie est un jardin, cultivez-la avec amour et patience."
+        ];
+
+        window.addEventListener('load', () => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            setTimeout(() => {
+                loader.style.display = 'none';
+                document.body.classList.add('site-ready');
+            }, 600);
+        });
+
+        const engines = {
+            google: { url: "https://www.google.com/search?q=", dom: "google.com" },
+            bing: { url: "https://www.bing.com/search?q=", dom: "bing.com" },
+            ecosia: { url: "https://www.ecosia.org/search?q=", dom: "ecosia.org" },
+            duckduckgo: { url: "https://duckduckgo.com/?q=", dom: "duckduckgo.com" },
+            lilo: { url: "https://search.lilo.org/results.php?q=", dom: "lilo.org" },
+            qwant: { url: "https://www.qwant.com/?q=", dom: "qwant.com" },
+            brave: { url: "https://search.brave.com/search?q=", dom: "brave.com" },
+            yahoo: { url: "https://search.yahoo.com/search?p=", dom: "yahoo.com" },
+            startpage: { url: "https://www.startpage.com/do/search?query=", dom: "startpage.com" }
+        };
+
+        const aiTools = {
+            chatgpt: { url: "https://chatgpt.com/?q=", dom: "chatgpt.com" },
+            claude: { url: "https://claude.ai/new?q=", dom: "claude.ai" },
+            gemini: { url: "https://gemini.google.com/app?q=", dom: "gemini.google.com" },
+            perplexite: { url: "https://www.perplexity.ai/?q=", dom: "perplexity.ai" },
+            mistral: { url: "https://chat.mistral.ai/chat?q=", dom: "mistral.ai" },
+            deepseek: { url: "https://chat.deepseek.com/?q=", dom: "deepseek.com" },
+            grok: { url: "https://x.com/i/grok?q=", dom: "x.com" },
+            poe: { url: "https://poe.com/?q=", dom: "poe.com" },
+            copilot: { url: "https://copilot.microsoft.com/?q=", dom: "microsoft.com" }
+        };
+
+        function selectEngine(key) {
+            document.getElementById('enginePick').value = key;
+            updateEngine();
+            document.getElementById('engineDropdown').style.display = 'none';
+        }
+
+        function selectAI(key) {
+            document.getElementById('aiPick').value = key;
+            updateAI();
+            document.getElementById('aiDropdown').style.display = 'none';
+        }
+
+        function updateEngine() {
+            const key = document.getElementById('enginePick').value;
+            const icon = document.getElementById('activeEngineIcon');
+            if(key === "all_engines") icon.src = "https://cdn-icons-png.flaticon.com/512/743/743204.png";
+            else if(engines[key]) icon.src = `https://www.google.com/s2/favicons?sz=64&domain=${engines[key].dom}`;
+        }
+
+        function updateAI() {
+            const key = document.getElementById('aiPick').value;
+            const icon = document.getElementById('activeAiIcon');
+            if(key === "all_ai") icon.src = "https://cdn-icons-png.flaticon.com/512/2103/2103633.png";
+            else if(aiTools[key]) icon.src = `https://www.google.com/s2/favicons?sz=64&domain=${aiTools[key].dom}`;
+        }
+
+        function handleSearch(e) {
+            e.preventDefault();
+            const q = document.getElementById('searchInput').value;
+            const k = document.getElementById('enginePick').value;
+            if(k === "all_engines") Object.values(engines).forEach(eng => window.open(eng.url + encodeURIComponent(q), '_blank'));
+            else window.location.href = engines[k].url + encodeURIComponent(q);
+        }
+
+        function redirectAI() {
+            const q = document.getElementById('searchInput').value;
+            if(!q) return alert("Saisissez une question pour l'IA.");
+            const k = document.getElementById('aiPick').value;
+            if(k === "all_ai") Object.values(aiTools).forEach(ai => window.open(ai.url + encodeURIComponent(q), '_blank'));
+            else window.open(aiTools[k].url + encodeURIComponent(q), '_blank');
+        }
+
+        let favs = JSON.parse(localStorage.getItem('oasis_favs')) || [
+            {n:'YouTube', u:'https://youtube.com', d:'youtube.com'},
+            {n:'Gmail', u:'https://gmail.com', d:'gmail.com'},
+            {n:'GitHub', u:'https://github.com', d:'github.com'}
+        ];
+
+        function renderFavs() {
+            const grid = document.getElementById('favGrid');
+            grid.innerHTML = favs.map((f, i) => `
+                <div class="fav-item">
+                    <a href="${f.u}" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:8px;">
+                        <img src="https://www.google.com/s2/favicons?sz=64&domain=${f.d}">
+                        <span>${f.n}</span>
+                    </a>
+                    <button class="del-btn" onclick="deleteFav(${i})">×</button>
+                </div>
+            `).join('') + `<button class="fav-item btn-add-fav" onclick="openModal('favModal')"><i class="fas fa-plus"></i> Ajouter</button>`;
+        }
+
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        function saveFav() {
+            const n = document.getElementById('favName').value;
+            let u = document.getElementById('favUrl').value;
+            if(!u) return;
+            if(!u.startsWith('http')) u = 'https://' + u;
+            try {
+                const d = new URL(u).hostname;
+                favs.push({n: n || d, u, d});
+                localStorage.setItem('oasis_favs', JSON.stringify(favs));
+                renderFavs(); closeModal('favModal');
+                document.getElementById('favName').value = ""; document.getElementById('favUrl').value = "";
+            } catch(e) { alert("URL Invalide"); }
+        }
+        function deleteFav(i) { favs.splice(i, 1); localStorage.setItem('oasis_favs', JSON.stringify(favs)); renderFavs(); }
+
+        const postIt = document.getElementById("postIt");
+        let isDragging = false, offset = [0,0];
+        document.getElementById('postItHeader').onmousedown = (e) => {
+            isDragging = true;
+            offset = [postIt.offsetLeft - e.clientX, postIt.offsetTop - e.clientY];
+        };
+        document.onmousemove = (e) => {
+            if (!isDragging) return;
+            postIt.style.left = (e.clientX + offset[0]) + 'px';
+            postIt.style.top = (e.clientY + offset[1]) + 'px';
+            postIt.style.right = 'auto';
+        };
+        document.onmouseup = () => isDragging = false;
+
+        function openBreathe() {
+            const modal = document.getElementById('breatheModal');
+            const text = document.getElementById('breatheText');
+            modal.style.display = 'flex';
+            let phase = 0;
+            window.breatheCycle = setInterval(() => {
+                modal.classList.toggle('breathing');
+                phase++;
+                text.innerText = (phase % 2 === 0) ? "Inspirez" : "Expirez";
+            }, 4000);
+        }
+        function closeBreathe() {
+            document.getElementById('breatheModal').style.display = 'none';
+            clearInterval(window.breatheCycle);
+        }
+
+        function togglePostIt() {
+            const p = document.getElementById('postIt');
+            p.style.display = (p.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const isDark = body.getAttribute('data-theme') === 'dark';
+            body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+            document.getElementById('themeIcon').className = isDark ? 'fas fa-moon' : 'fas fa-sun';
+            localStorage.setItem('nebuleuse_theme', isDark ? 'light' : 'dark');
+        }
+
+        function openPomodoro() { openModal('pomodoroModal'); }
+
+        // Charger le thème sauvegardé
+        window.onload = () => {
+            const savedTheme = localStorage.getItem('nebuleuse_theme');
+            if (savedTheme) {
+                document.body.setAttribute('data-theme', savedTheme);
+                document.getElementById('themeIcon').className = savedTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+            }
+
+            // Choisir une citation aléatoire
+            const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+            document.getElementById('quote').textContent = `"${randomQuote}"`;
+
+            updateEngine(); updateAI(); renderFavs();
+            setInterval(() => {
+                document.getElementById('clock').innerText = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+            document.getElementById('weather').innerText = "19°C";
+            document.getElementById('noteArea').value = localStorage.getItem('nebuleuse_note') || "";
+            document.getElementById('noteArea').addEventListener('input', (e) => {
+                localStorage.setItem('nebuleuse_note', e.target.value);
+            });
+        };
+    </script>
+</body>
+</html>
